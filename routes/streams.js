@@ -7,7 +7,6 @@ const { waitForTransactionReceipt } = require("viem/actions");
 const { dreamChain } = require("../dream-chain");
 require("dotenv").config();
 
-// Create SDK clients
 const publicClient = createPublicClient({
   chain: dreamChain,
   transport: http(),
@@ -21,15 +20,12 @@ const walletClient = createWalletClient({
 
 const sdk = new SDK({ public: publicClient, wallet: walletClient });
 
-// Define schema
 const playerSchema = `address player, uint256 score, uint256 playTime`;
 const encoder = new SchemaEncoder(playerSchema);
 
-// Compute schema ID immediately (synchronous)
 let schemaId;
 let initPromise;
 
-// ✅ Compute + register schema once on startup
 (async () => {
   try {
     schemaId = await sdk.streams.computeSchemaId(playerSchema);
@@ -65,10 +61,6 @@ let initPromise;
   }
 })();
 
-/**
- * 📍 GET /api/schema
- * Trả về schemaId hiện tại
- */
 router.get("/schema", async (req, res) => {
   try {
     if (!schemaId) {
@@ -80,11 +72,6 @@ router.get("/schema", async (req, res) => {
   }
 });
 
-/**
- * 📍 POST /api/publish
- * Gửi dữ liệu lên Somnia Streams
- * Body: { player, score, playTime }
- */
 router.post("/publish", async (req, res) => {
   try {
     const { player, score, playTime } = req.body;
@@ -118,13 +105,8 @@ router.post("/publish", async (req, res) => {
   }
 });
 
-/**
- * 📍 GET /api/data
- * Truy xuất toàn bộ dữ liệu từ publisher
- */
 router.get("/data", async (req, res) => {
   try {
-    // Ensure schemaId is computed
     if (!schemaId) {
       schemaId = await sdk.streams.computeSchemaId(playerSchema);
     }
@@ -135,7 +117,6 @@ router.get("/data", async (req, res) => {
       publisher
     );
 
-    // Handle null or empty response
     if (!allData || !Array.isArray(allData) || allData.length === 0) {
       return res.json({
         totalPlayers: 0,
@@ -156,7 +137,6 @@ router.get("/data", async (req, res) => {
       return { player, score, playTime };
     });
 
-    // Bước 2️⃣ - Lọc trùng player, chỉ giữ score cao nhất
     const bestScores = {};
     for (const entry of formatted) {
       if (!entry.player) continue;
@@ -166,7 +146,6 @@ router.get("/data", async (req, res) => {
       }
     }
 
-    // Bước 3️⃣ - Chuyển về mảng và sắp xếp giảm dần theo score
     const leaderboard = Object.values(bestScores)
       .sort((a,b) => b.score - a.score)
       .map((e, index) => ({
