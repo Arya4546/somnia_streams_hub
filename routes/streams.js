@@ -122,8 +122,19 @@ router.post("/publish", async (req, res) => {
         .json({ error: "Missing player, score, or playTime" });
     }
 
-    // Ensure schemaId is computed before publishing
     const currentSchemaId = await ensureSchemaId();
+
+    const balance = await publicClient.getBalance({ 
+      address: walletClient.account.address 
+    });
+
+    if (balance === 0n) {
+      return res.status(500).json({ 
+        error: "Insufficient funds: Publisher wallet has zero STT balance",
+        wallet: walletClient.account.address,
+        message: "Please fund this wallet with STT tokens on Somnia Dream network"
+      });
+    }
 
     const data = encoder.encodeData([
       { name: "player", value: player, type: "address" },
@@ -131,7 +142,6 @@ router.post("/publish", async (req, res) => {
       { name: "playTime", value: BigInt(playTime), type: "uint256" },
     ]);
 
-    // Validate that data was encoded successfully
     if (!data) {
       throw new Error("Failed to encode data");
     }
@@ -149,7 +159,20 @@ router.post("/publish", async (req, res) => {
     res.json({ success: true, txHash: tx });
   } catch (err) {
     console.error("Publish error:", err);
-    res.status(500).json({ error: err.message });
+    
+    if (err.message?.includes("account does not exist") || err.details?.includes("account does not exist")) {
+      return res.status(500).json({ 
+        error: "Publisher wallet account does not exist or has zero balance",
+        wallet: walletClient.account.address,
+        message: "Please fund this wallet with STT tokens on Somnia Dream network",
+        details: err.shortMessage || err.message
+      });
+    }
+    
+    res.status(500).json({ 
+      error: err.shortMessage || err.message,
+      details: err.details
+    });
   }
 });
 
